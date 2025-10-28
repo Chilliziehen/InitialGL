@@ -11,8 +11,31 @@ set(GLFW_INCLUDE_DIR ${DEPENDENCIES_DIR}/GLFW/include)
 set(STB_IMAGE_INCLUDE_DIR ${DEPENDENCIES_DIR}/OTHER/IMAGE)
 # GLM 放在 OTHER/MATH（其下含 glm.hpp、gtc、gtx、detail 等）
 set(GLM_INCLUDE_DIR ${DEPENDENCIES_DIR}/OTHER/MATH)
+# 新增 KHR 与 EGL 头文件目录（供 eglew.h 使用）
 
-add_executable(InitialGL )
+set(UTILITIES_DIR ${CMAKE_SOURCE_DIR}/src/cxx/main/util)
+
+set(SHADER_DIR ${CMAKE_SOURCE_DIR}/src/cxx/main/shader)
+
+add_executable(InitialGL
+        src/cxx/main/camera/Camera.cpp
+        src/cxx/main/shader/VertexShader.cpp
+        src/cxx/main/util/Utilities.cpp
+        src/cxx/main/shader/FragmentShader.cpp
+        src/cxx/main/program/Program.cpp
+        src/cxx/main/main.cpp)
+
+# 定义资源路径变量
+set(RESOURCE_PATH "${CMAKE_SOURCE_DIR}/src/cxx/Resources")
+set(GLSL_PATH "${CMAKE_SOURCE_DIR}/src/glsl")
+set(CONFIG_DIR ${CMAKE_SOURCE_DIR}/config)
+# 生成头文件，把路径写进去
+configure_file(
+        ${CONFIG_DIR}/config.h.in
+        ${CONFIG_DIR}/config.h
+)
+
+
 
 # 添加包含目录（仅对本目标可见）
 target_include_directories(InitialGL PRIVATE
@@ -20,6 +43,12 @@ target_include_directories(InitialGL PRIVATE
         ${GLFW_INCLUDE_DIR}
         ${STB_IMAGE_INCLUDE_DIR}
         ${GLM_INCLUDE_DIR}
+        ${KHR_INCLUDE_DIR}
+        ${EGL_INCLUDE_DIR}
+        ${UTILITIES_DIR}
+        ${SHADER_DIR}
+        ${DEPENDENCIES_DIR}
+        ${CMAKE_SOURCE_DIR}
 )
 
 # 使用 GLEW 静态库时需要该宏

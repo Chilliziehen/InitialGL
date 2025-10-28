@@ -1,0 +1,8 @@
+//
+// Created by 30367 on 2025/10/28.
+//
+#pragma once
+
+#define RESOURCE_PATH "@RESOURCE_PATH@"
+
+#define GLSL_PATH "@GLSL_PATH@"
