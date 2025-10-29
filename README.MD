@@ -1,52 +1,68 @@
-# OpenGL 初始环境
+# InitialGL — OpenGL 学习与示例工程（Windows/MSVC）
 
-本项目旨在帮助开发者在 Windows 上快速搭建可用的 OpenGL+CMake 开发环境，并集成常用依赖：GLEW、GLFW、stb_image、GLM。
+本项目提供一个开箱即用的 OpenGL + CMake + MSVC 环境，已集成常用依赖：GLEW、GLFW、stb_image、GLM，并内置最小示例与资源/着色器路径配置。
 
-## 目录结构
+## 许可证
+
+- 本项目使用 MIT 许可证，详见根目录 LICENSE。
+- 所含第三方依赖遵循其各自的开源许可证（见文末“依赖与链接”）。
+
+## 项目结构
 
 ```
-InitialGL/
-├─ CMakeLists.txt              # CMake 构建脚本（已接入 Dependencies）
-├─ main.cpp                    # 示例入口（控制台输出）
-├─ Dependencies/               # 本地三方依赖（免安装）
+2025_autumn_cg/
+├─ CMakeLists.txt
+├─ LICENSE
+├─ README.MD
+├─ vcpkg.json                       # 可选；当前未声明依赖（使用本地 Dependencies）
+├─ vcpkg-configuration.json         # 可选；如需启用 vcpkg
+├─ config/
+│  ├─ config.h.in                   # CMake configure_file 模板（写入资源与 GLSL 路径）
+│  └─ config.h                      # 由 CMake 生成（当前配置写回源码目录，亦可生成到构建目录）
+├─ Dependencies/                    # 预编译/头文件依赖（MSVC/Windows）
 │  ├─ GLEW/
-│  │  ├─ include/GL/*.h        # glew.h 等头文件
-│  │  └─ lib/                  # glew32s.lib（静态），glew32.lib（动态）
+│  │  ├─ include/GL/*.h
+│  │  └─ lib/glew32s.lib            # 静态库（与 GLEW_STATIC 搭配）
 │  ├─ GLFW/
 │  │  ├─ include/GLFW/*.h
-│  │  └─ lib-vc2022/           # glfw3.lib（/MD 静态），glfw3_mt.lib（/MT 静态），glfw3dll.lib 等
+│  │  └─ lib-vc2022/glfw3.lib       # /MD 运行库版本（若用 /MT，请改为 glfw3_mt.lib）
 │  └─ OTHER/
-│     ├─ IMAGE/stb_image.h     # stb_image 头文件
-│     └─ MATH/                 # GLM 头文件（glm.hpp、gtc/、gtx/…）
-└─ cmake-build-*/              # 构建输出目录（由 CMake 生成）
+│     ├─ IMAGE/stb_image.h
+│     ├─ MATH/                      # GLM 头文件（glm.hpp、gtc/、gtx/、detail/）
+│     └─ MODEL/                     # 示例模型或资源
+├─ src/
+│  ├─ cxx/
+│  │  ├─ main/
+│  │  │  ├─ main.cpp
+│  │  │  ├─ camera/Camera.cpp
+│  │  │  ├─ program/Program.cpp
+│  │  │  ├─ shader/VertexShader.cpp
+│  │  │  ├─ shader/FragmentShader.cpp
+│  │  │  ├─ model/Model.cpp
+│  │  │  ├─ util/Utilities.cpp
+│  │  │  └─ call_back/CallBack.{h,cpp}
+│  │  ├─ Resources/                 # 运行期资源（纹理、模型等）
+│  │  └─ test/                      # 测试/示例（可选）
+│  └─ glsl/
+│     ├─ vertex.vsh
+│     ├─ fragment.fsh
+│     ├─ gPass/                     # 几何通道着色器（若有）
+│     └─ lPass/                     # 光照通道着色器（若有）
+└─ cmake-build-*/                   # 构建输出目录（由 CMake 生成）
 ```
 
-## 已接入的依赖
+## 构建与部署
 
-- GLEW：用于加载 OpenGL 扩展；默认以静态库方式链接（glew32s.lib），并定义 GLEW_STATIC。
-- GLFW：跨平台窗口与上下文创建；默认链接静态库 glfw3.lib（与 /MD 运行库匹配）。
-- stb_image：头文件库，用于图像加载（仅包含目录）。
-- GLM：头文件库，OpenGL 风格的数学库（仅包含目录）。
+- 操作系统：Windows 10/11（64 位）
+- 工具链：
+  - CMake 4.0+（建议 4.1+）
+  - Visual Studio 2022（MSVC 工具集）或“x64 Native Tools for VS 2022”控制台
+  - 可选 Ninja 构建器
+- 图形环境：建议 GPU 驱动支持 OpenGL 3.3+。
 
-注意：当前仓库中提供的二进制库为 MSVC/Windows 预编译版本，无法直接用于 MinGW。若使用 MinGW，请参考下文“MinGW 构建”。
+推荐使用 MSVC（已提供预编译 .lib，开箱即用）：
 
-## 环境准备
-
-- 操作系统：Windows 10/11
-- 构建工具：CMake（建议 3.26+），可选 Ninja
-- 编译器（两选一）：
-  - Visual Studio 2022（MSVC 工具集）
-  - MinGW-w64（需自行获取对等库或用包管理器安装）
-
-## 构建与运行
-
-默认 CMake 已将 Dependencies 添加到包含与链接路径中：
-- 头文件包含：GLEW/include、GLFW/include、OTHER/IMAGE（stb_image）、OTHER/MATH（GLM）
-- MSVC 下链接：glew32s.lib、glfw3.lib 以及 opengl32、user32、gdi32、shell32 等系统库
-
-推荐使用 MSVC 构建（开箱即用）：
-
-- Visual Studio 生成器
+- 方式 A：Visual Studio 生成器
   1) 生成工程：
      ```pwsh
      cmake -S . -B cmake-build-msvc -G "Visual Studio 17 2022" -A x64
@@ -60,7 +76,7 @@ InitialGL/
      .\cmake-build-msvc\Debug\InitialGL.exe
      ```
 
-- Ninja + MSVC（在“x64 Native Tools for VS 2022”环境中）
+- 方式 B：Ninja + MSVC（在“x64 Native Tools for VS 2022”环境中）
   1) 生成：
      ```bat
      cmake -S . -B cmake-build-msvc -G Ninja
@@ -71,50 +87,73 @@ InitialGL/
      .\cmake-build-msvc\InitialGL.exe
      ```
 
-### MinGW 构建（可选）
+提示：本仓库的 Dependencies 下第三方库为 MSVC/Windows 预编译版本，不能直接被 MinGW 使用。
 
-仓库内的 .lib 为 MSVC 版本，MinGW 无法直接使用。若使用 MinGW，请：
-- 通过 MSYS2/MinGW 包管理安装对应库，例如：glfw、glew、glm、stb
-- 或手动从源码编译获得 .a 静态库
-- 然后在 CMakeLists.txt 的非 MSVC 分支中，添加 MinGW 对应的链接库（如 -lglfw3、-lGLEW、-lopengl32 等）
+### 使用 MinGW（可选）
 
-当前示例 main.cpp 不依赖 OpenGL API，因此即使不链接上述库也可编译运行。但在你的代码中开始使用 OpenGL/GLFW/GLEW 接口前，请完成 MinGW 链接配置。
+若要使用 MinGW-w64，请通过 MSYS2 安装或从源码编译得到对应的 .a 库，并在 CMakeLists.txt 的非 MSVC 分支中配置：
+- 包含路径：GLFW、GLEW、stb、GLM 头文件
+- 链接库：-lglfw3、-lGLEW、-lopengl32 等（以实际安装为准）
 
-## 在代码中使用依赖
+## 配置参数（config）
 
-- 头文件示例：
-  ```cpp
-  #include <GL/glew.h>
-  #include <GLFW/glfw3.h>
-  #include <stb_image.h>
-  #include <glm/glm.hpp>
-  ```
-- 初始化顺序提示（MSVC 静态 GLEW）：
-  1) 调用 glfwInit 并创建窗口与上下文
-  2) 调用 glewInit 以加载函数指针（需在上下文有效后）
+CMake 会把资源与着色器根路径写入一个头文件，供运行时代码引用：
 
-## 运行库与切换说明
+- 模板文件：config/config.h.in
+- 生成文件：config/config.h（当前脚本写回源码目录）
 
-- 默认链接 glfw3.lib（/MD）。若你的项目使用 /MT 运行库，请：
-  - 将 CMake 中 GLFW 库切换为 glfw3_mt.lib
-  - 或统一配置工程的运行库为 /MD
-- GLEW 默认使用 glew32s.lib（静态）。如需改用动态（glew32.lib）：
-  - 移除/关闭 GLEW_STATIC 宏
-  - 部署同目录下的 glew32.dll 到可执行文件旁或系统路径
+可用宏：
+- RESOURCE_PATH：资源根目录，默认 "${CMAKE_SOURCE_DIR}/src/cxx/Resources"
+- GLSL_PATH：着色器根目录，默认 "${CMAKE_SOURCE_DIR}/src/glsl"
 
-## 常见问题（FAQ）
+如何使用：
+```cpp
+#include "config.h"
+#include <string>
 
-- LNK2038 运行库不匹配（/MD vs /MT）：确保使用与工程一致的 GLFW 库（glfw3.lib 或 glfw3_mt.lib），或统一运行库设置。
-- 找不到 OpenGL 符号：确保链接了 opengl32.lib（MSVC）或 -lopengl32（MinGW）。
-- IDE 报找不到头文件：请通过 CMake 打开工程而非单文件编译；包含与链接路径已在 CMakeLists.txt 中配置。
-- MinGW 不能用 MSVC 的 .lib：需安装 MinGW 版本的库或自行编译生成 .a，并在 CMake 非 MSVC 分支中链接。
+std::string tex = std::string(RESOURCE_PATH) + "/textures/xxx.png";
+std::string vsh = std::string(GLSL_PATH) + "/vertex.vsh";
+```
 
-## 维护与扩展
+如何修改：
+- 直接在 CMakeLists.txt 顶部修改：
+  - set(RESOURCE_PATH "${CMAKE_SOURCE_DIR}/src/cxx/Resources")
+  - set(GLSL_PATH "${CMAKE_SOURCE_DIR}/src/glsl")
+- 重新 CMake 配置并编译；config.h 将被重新生成。
 
-- 依赖根目录：CMake 中以 `${CMAKE_SOURCE_DIR}/Dependencies` 约定
-- 若更新/替换依赖：保持 include 与 lib 目录结构或同步更新 CMake 路径
-- 建议将渲染/初始化逻辑拆分到独立源文件，并逐步增加单元测试
+注意：把生成文件写回源码目录虽便于 include，但也可改为写入构建目录并通过 target_include_directories 暴露给目标。
 
----
+## 运行时注意
 
-如需我为 MinGW 增补完整链接分支或添加一段最小可运行的 GLFW+GLEW 初始化示例，请告知你的目标编译器与期望运行库（/MD 或 /MT）。
+- 使用 glew32s.lib 时已自动定义 GLEW_STATIC；初始化顺序需先创建有效的 OpenGL 上下文（GLFW），再调用 glewInit。
+- GLFW 默认链接的是 /MD 运行库版本的 glfw3.lib；若工程改为 /MT，请切换为 glfw3_mt.lib 并全局统一运行库。
+- Windows 下还会链接 opengl32、user32、gdi32、shell32、winmm 等系统库（已在 CMake 中配置）。
+
+## 依赖与链接（第三方）
+
+- GLEW — The OpenGL Extension Wrangler Library（BSD-3-Clause）
+  - https://github.com/nigels-com/glew
+  - 许可：https://github.com/nigels-com/glew/blob/master/LICENSE.txt
+- GLFW — A multi-platform library for OpenGL（zlib/libpng License）
+  - https://www.glfw.org/
+  - https://github.com/glfw/glfw
+  - 许可：https://github.com/glfw/glfw/blob/master/LICENSE.md
+- stb_image.h（Public Domain or MIT）
+  - https://github.com/nothings/stb
+  - 许可：https://github.com/nothings/stb#license
+- GLM — OpenGL Mathematics（MIT License）
+  - https://github.com/g-truc/glm
+  - 许可：https://github.com/g-truc/glm/blob/master/copying.txt
+
+可选/保留位：
+- KHR/EGL 头文件（如后续引入 eglew.h 或 EGL 环境，可在 CMake 中添加 KHR_INCLUDE_DIR/EGL_INCLUDE_DIR）。
+
+## 常见问题
+
+- LNK2038 或运行库不一致（/MD vs /MT）：请统一工程运行库并选择匹配的 GLFW 静态库文件。
+- 无法解析 OpenGL 符号：确保链接 opengl32.lib（MSVC）或 -lopengl32（MinGW）。
+- 找不到头文件：请通过 CMake 打开工程（而非单文件编译）；包含路径已由 target_include_directories 配置。
+
+## 贡献
+
+欢迎以 PR 的形式提交改进（示例、工具链适配、CMake 优化、文档修正等）。在提交前请确认构建通过并遵循项目许可证。
