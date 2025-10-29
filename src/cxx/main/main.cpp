@@ -27,8 +27,6 @@ float scale = 1.0f;
 bool cursorEnabled = false;
 Camera* cam;
 
-
-
 int main() {
     try {
         //glDisable(GL_CULL_FACE);
@@ -136,9 +134,23 @@ int main() {
         lPass.compileAll();
         lPass.linkAll();
 
+        std::string sVshPath = std::string(GLSL_PATH)+std::string("/sPass/sVertex.vert");
+        std::string sFshPath = std::string(GLSL_PATH)+std::string("/sPass/sFragment.frag");
+        VertexShader sVsh(sVshPath.c_str());
+        FragmentShader sFsh(sFshPath.c_str());
+        sVsh.compile();
+        sFsh.compile();
+        Program shadowPass;
+        shadowPass.init();
+        shadowPass.addShader(&sVsh, GL_VERTEX_SHADER);
+        shadowPass.addShader(&sFsh, GL_FRAGMENT_SHADER);
+        shadowPass.compileAll();
+        shadowPass.linkAll();
+
         // 在 use 之后设置 Uniform（使用正确的 programId）
         GLuint gPassProgId = gPass.getId();
         GLuint lPassProgId = lPass.getId();
+        GLuint sPassProgId = shadowPass.getId();
 
         // gPass 采样器绑定到纹理单元 0/1
         gPass.use();
@@ -155,15 +167,36 @@ int main() {
         GLint uLocGPos = glGetUniformLocation(lPassProgId, "gPosition");
         GLint uLocGNormal = glGetUniformLocation(lPassProgId, "gNormal");
         GLint uLocGAlbedoSpec = glGetUniformLocation(lPassProgId, "gAlbedoSpec");
+        GLint uLocSTexture = glGetUniformLocation(lPassProgId, "shadowTexture");
+        GLint uLocGainTexture = glGetUniformLocation(lPassProgId, "gainTexture");
+        GLint uLocMat4LightProj_lPass = glGetUniformLocation(lPassProgId, "umat4LightProj");
+        GLint uLocMat4LightView_lPass = glGetUniformLocation(lPassProgId, "umat4LightView");
         if (uLocGPos != -1) glUniform1i(uLocGPos, 0);
         if (uLocGNormal != -1) glUniform1i(uLocGNormal, 1);
         if (uLocGAlbedoSpec != -1) glUniform1i(uLocGAlbedoSpec, 2);
+        if (uLocSTexture != -1) glUniform1i(uLocSTexture, 3);
+        if (uLocGainTexture != -1) glUniform1i(uLocGainTexture, 4);
+
+        shadowPass.use();
+        GLint uLocMat4LightView = glGetUniformLocation(sPassProgId, "umat4LightView");
+        GLint uLocMat4LightProj = glGetUniformLocation(sPassProgId, "umat4LightProj");
+        GLint uLocMat4ModelShadow = glGetUniformLocation(sPassProgId, "umat4Model");
 
         // 相机矩阵初值
         glm::mat4 mat4View = glm::lookAt(glm::vec3(1.0f,1.0f,3.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(0.0f,1.0f,0.0f));
         glm::mat4 mat4Proj = cam->getProjectionMatrix();
         glm::mat4 mat4Model = glm::scale(glm::mat4(1.0f),glm::vec3(1.0f,1.0f,1.0f));
+        glm::mat4 mat4LightView = glm::lookAt(glm::vec3(2.0f,2.0f,2.0f),
+            glm::vec3(0.0f,0.0f,0.0f),glm::normalize(glm::cross(glm::vec3(-1.0f,0.0f,1.0f),glm::vec3(-1.0f,-1.0f,-1.0f))));
 
+        glm::mat4 mat4LightProj = glm::ortho(-15.0f,
+        15.0f,
+            -8.0f,
+            8.0f,
+            0.1f,
+            100.0f);
+
+        //glm::mat4 mat4LightProj = glm::perspective(glm::radians(60.0f),1.0f,0.1f,100.0f);
         gPass.use();
         if (uLocMat4View != -1)
             glUniformMatrix4fv(uLocMat4View, 1, GL_FALSE, glm::value_ptr(mat4View));
@@ -177,7 +210,12 @@ int main() {
         glfwSetScrollCallback(hWindow,CallBack::mouse_scroll_callback);
 
         Model teapot(std::string(RESOURCE_PATH)+std::string("/teamugobj.obj"));
+        teapot.setModelMatrix(glm::translate(glm::mat4(1.0f),glm::vec3(0.3f,-0.2f,0.3f))*glm::scale(glm::mat4(1.0f),glm::vec3(0.5f,0.5f,0.5f)));
         teapot.load();
+
+        Model plane(std::string(RESOURCE_PATH)+std::string("/plane.obj"));
+        plane.load();
+        plane.setModelMatrix(glm::translate(glm::mat4(1.0f),glm::vec3(-500.0f,-0.2f,-500.0f))*glm::scale(glm::mat4(1.0f),glm::vec3(1000.0f,1000.0f,1000.0f)));
 
         // 创建 G-Buffer
         GLuint gBuffer;
@@ -192,6 +230,7 @@ int main() {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        //指定该纹理为颜色附件0
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
 
         // Normal
@@ -211,6 +250,7 @@ int main() {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpecular, 0);
 
         // 指定颜色附件集合
+        //在片元着色器的layout中指定输出位置时要对应这里的顺序
         const GLenum attachments[3] = {
             GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2
         };
@@ -228,6 +268,39 @@ int main() {
             throw std::runtime_error("GBuffer is not complete!");
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // 创建阴影贴图
+        GLuint sBuffer;
+        glGenFramebuffers(1, &sBuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, sBuffer);
+        // 创建深度纹理
+        GLuint depthTexture;
+        glGenTextures(1, &depthTexture);
+        glBindTexture(GL_TEXTURE_2D, depthTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, WIDTH, HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        float borderColor[] = {1.0, 1.0, 1.0, 1.0};
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+        //创建光源平行光增益贴图
+        GLuint lGainTexture;
+        glGenTextures(1, &lGainTexture);
+        glBindTexture(GL_TEXTURE_2D, lGainTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+        //绑定到FBO的深度输出
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
+        //绑定到FBO的颜色输出
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lGainTexture, 0);
+        const GLenum sAttachments[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1,sAttachments);
 
         // 构建全屏 Quad（NDC xy, UV）
         GLuint quadVAO = 0, quadVBO = 0;
@@ -264,6 +337,27 @@ int main() {
             mat4View = cam->getViewMatrix();
             mat4Proj = cam->getProjectionMatrix();
 
+            //shadow pass, write into S-Buffer.
+            glBindFramebuffer(GL_FRAMEBUFFER, sBuffer);
+            glViewport(0, 0, ViewWidth, ViewHeight);
+            glEnable(GL_DEPTH_TEST);
+            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+            shadowPass.use();
+            //传入参数
+            if (uLocMat4LightView != -1)
+                glUniformMatrix4fv(uLocMat4LightView, 1, GL_FALSE, glm::value_ptr(mat4LightView));
+            if (uLocMat4LightProj != -1)
+                glUniformMatrix4fv(uLocMat4LightProj, 1, GL_FALSE, glm::value_ptr(mat4LightProj));
+            //Under construction.
+            teapot.bindVAO();
+            glUniformMatrix4fv(uLocMat4ModelShadow, 1, GL_FALSE, glm::value_ptr(teapot.getModelMatrix()));
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(teapot.getVertexCount()));
+            teapot.unbindVAO();
+            plane.bindVAO();
+            glUniformMatrix4fv(uLocMat4ModelShadow, 1, GL_FALSE, glm::value_ptr(plane.getModelMatrix()));
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(plane.getVertexCount()));
+            plane.unbindVAO();
+
             // 几何通道：写入 G-Buffer
             glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
             glViewport(0, 0, ViewWidth, ViewHeight);
@@ -276,8 +370,6 @@ int main() {
                 glUniformMatrix4fv(uLocMat4View, 1, GL_FALSE, glm::value_ptr(mat4View));
             if (uLocMat4Proj != -1)
                 glUniformMatrix4fv(uLocMat4Proj, 1, GL_FALSE, glm::value_ptr(mat4Proj));
-            if (uLocMat4Model != -1)
-                glUniformMatrix4fv(uLocMat4Model, 1, GL_FALSE, glm::value_ptr(teapot.getModelMatrix()));
 
             // 绑定漫反射与高光贴图
             glActiveTexture(GL_TEXTURE0);
@@ -285,7 +377,13 @@ int main() {
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, texture_specular);
 
+            plane.bindVAO();
+            glUniformMatrix4fv(uLocMat4Model, 1, GL_FALSE, glm::value_ptr(plane.getModelMatrix()));
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(plane.getVertexCount()));
+            plane.unbindVAO();
+
             teapot.bindVAO();
+            glUniformMatrix4fv(uLocMat4Model, 1, GL_FALSE, glm::value_ptr(teapot.getModelMatrix()));
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(teapot.getVertexCount()));
             teapot.unbindVAO();
 
@@ -304,6 +402,15 @@ int main() {
             glBindTexture(GL_TEXTURE_2D, gNormal);
             glActiveTexture(GL_TEXTURE2);
             glBindTexture(GL_TEXTURE_2D, gAlbedoSpecular);
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, depthTexture);
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, lGainTexture);
+            // 传入光源矩阵
+            if (uLocMat4LightProj_lPass != -1)
+                glUniformMatrix4fv(uLocMat4LightProj_lPass, 1,GL_FALSE, glm::value_ptr(mat4LightProj));
+            if (uLocMat4LightView_lPass != -1)
+                glUniformMatrix4fv(uLocMat4LightView_lPass, 1,GL_FALSE, glm::value_ptr(mat4LightView));
 
             // 设置观察位置与光源（示例：1 个点光源）
             GLint uLocViewPos = glGetUniformLocation(lPassProgId, "viewPos");

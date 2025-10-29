@@ -3,6 +3,6 @@
 //
 #pragma once
 
-#define RESOURCE_PATH "D:/Repositories/ComputerGraphics/2025_autumn_cg/src/cxx/Resources"
+#define RESOURCE_PATH "D:/Repositories/ComputerGraphics/InitialGL/src/cxx/Resources"
 
-#define GLSL_PATH "D:/Repositories/ComputerGraphics/2025_autumn_cg/src/glsl"
+#define GLSL_PATH "D:/Repositories/ComputerGraphics/InitialGL/src/glsl"
