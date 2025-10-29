@@ -20,14 +20,13 @@ uniform Light lights[16];
 
 out vec4 fragColor;
 
-in vec2 tCoord; //是在buffer中定位片段其他属性所用的纹理坐标
-                //buffer视为纹理
+in vec2 tCoord; // 屏幕空间采样坐标 [0,1]
 
 void main() {
-    vec3 fragPos = texture(gPosition, texCoord).rgb;
-    vec3 normal = normalize(texture(gNormal, texCoord).rgb);
-    vec3 albedo = texture(gAlbedoSpec, texCoord).rgb;
-    float specularStrength = texture(gAlbedoSpec, texCoord).a;
+    vec3 fragPos = texture(gPosition, tCoord).rgb;
+    vec3 normal = normalize(texture(gNormal, tCoord).rgb);
+    vec3 albedo = texture(gAlbedoSpec, tCoord).rgb;
+    float specularStrength = texture(gAlbedoSpec, tCoord).a;
 
     vec3 viewDir = normalize(viewPos - fragPos);
 
@@ -43,7 +42,7 @@ void main() {
 
         // Specular
         vec3 reflectDir = reflect(-lightDir, normal);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
         vec3 specular = specularStrength * spec * lights[i].color;
 
         // Attenuation
@@ -58,5 +57,4 @@ void main() {
     }
 
     fragColor = vec4(result, 1.0);
-    gl_Color = fragColor;
 }
