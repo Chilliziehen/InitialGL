@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/src/glsl/gPass/gVertex.vert">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/src/glsl/gPass/gVertex.vert" />
+              <option name="originalContent" value="#version 430&#10;layout (location = 0) in vec3 positionCoordinate;&#10;layout (location = 1) in vec2 textureCoordinate;&#10;layout (location = 2) in vec3 normal;&#10;&#10;out vec2 texCoord;&#10;out vec3 worldCoord;&#10;out vec3 fragNormal;&#10;&#10;uniform mat4 umat4Model;&#10;uniform mat4 umat4View;&#10;uniform mat4 umat4Proj;&#10;&#10;void main() {&#10;    texCoord = texutureCoordinate;&#10;    vec4 worldPosition = umat4Model * vec4(positionCoordinate, 1.0f);&#10;    worldCoord = worldPosition.xyz;&#10;    fragNormal = mat3(transpose(inverse(umat4Model))) * normal; // 法线变换&#10;    gl_Position = umat4Proj * umat4View * worldPosition;&#10;}" />
+              <option name="updatedContent" value="#version 430&#10;layout (location = 0) in vec3 positionCoordinate;&#10;layout (location = 1) in vec2 textureCoordinate;&#10;layout (location = 2) in vec3 normal;&#10;&#10;out vec2 texCoord;&#10;out vec3 worldCoord;&#10;out vec3 fragNormal;&#10;&#10;uniform mat4 umat4Model;&#10;uniform mat4 umat4View;&#10;uniform mat4 umat4Proj;&#10;&#10;void main() {&#10;    texCoord = textureCoordinate;&#10;    vec4 worldPosition = umat4Model * vec4(positionCoordinate, 1.0f);&#10;    worldCoord = worldPosition.xyz;&#10;    fragNormal = mat3(transpose(inverse(umat4Model))) * normal; // 法线变换&#10;    gl_Position = umat4Proj * umat4View * worldPosition;&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

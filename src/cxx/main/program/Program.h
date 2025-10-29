@@ -27,6 +27,7 @@ public:
     void use();
     void init();
     bool checkReady();
+    [[nodiscard]] inline GLuint getId() const { return programId; }
 };
 
 

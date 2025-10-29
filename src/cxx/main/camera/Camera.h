@@ -11,17 +11,20 @@
 #include "gtc/type_ptr.hpp"
 class Camera {
 private:
+
+public:
     glm::mat4 viewMatrix;
+    glm::mat4 projectionMatrix;
     glm::vec3 cameraPos;
     glm::vec3 cameraFront;
     glm::vec3 cameraUp;
     glm::vec3 cameraRight;
-public:
+    //glm::vec3 worldUp;   // 世界上方向
     GLfloat yaw;
     GLfloat pitch;
-    Camera(glm::vec3, glm::vec3,glm::vec3);
     /*The first parameter tells the position of the camera,
     and the second one tells the direction of the camera.*/
+    Camera(glm::vec3, glm::vec3,glm::vec3);
     Camera();
     /*If user didn't give Camera parameters,
      *Initialize the object's matrix with default view matrix.*/
@@ -31,6 +34,8 @@ public:
     void refresh();
     void move(bool *keys);
     void mousemove();
+    const glm::mat4& setProjectionMatrix(const glm::mat4 &project);
+    const glm::mat4& getProjectionMatrix();
 };
 
 

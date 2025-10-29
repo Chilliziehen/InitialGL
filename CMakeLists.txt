@@ -23,7 +23,10 @@ add_executable(InitialGL
         src/cxx/main/util/Utilities.cpp
         src/cxx/main/shader/FragmentShader.cpp
         src/cxx/main/program/Program.cpp
-        src/cxx/main/main.cpp)
+        src/cxx/main/main.cpp
+        src/cxx/main/call_back/CallBack.h
+        src/cxx/main/call_back/CallBack.cpp
+        src/cxx/main/model/Model.cpp)
 
 # 定义资源路径变量
 set(RESOURCE_PATH "${CMAKE_SOURCE_DIR}/src/cxx/Resources")
