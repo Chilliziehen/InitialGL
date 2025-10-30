@@ -11,16 +11,20 @@
 #include "config\config.h"
 #include "gtc/matrix_transform.hpp"
 #include "gtc/type_ptr.hpp"
-#include <cmath>
-
 #include "FragmentShader.h"
 #include "VertexShader.h"
 #include "camera/Camera.h"
 #include "program/Program.h"
 #include "call_back/CallBack.h"
+#include "light/LightManager.h"
 
 #define WIDTH 1920
 #define HEIGHT 1080
+
+#define SHADOW_WIDTH 2048
+#define SHADOW_HEIGHT 2048
+
+#define WINDOW_TITLE "Render"
 
 bool keys[1024] = {false};
 float scale = 1.0f;
@@ -39,7 +43,7 @@ int main() {
         //创建相机
         cam = new Camera();
 
-        GLFWwindow* hWindow = glfwCreateWindow(WIDTH, HEIGHT, "Hello OpenGLbyChilliziehen", nullptr, nullptr);
+        GLFWwindow* hWindow = glfwCreateWindow(WIDTH, HEIGHT, WINDOW_TITLE, nullptr, nullptr);
         if (hWindow == nullptr)
         {
             throw std::runtime_error("Failed to create GLFW window");
@@ -191,7 +195,7 @@ int main() {
 
         glm::mat4 mat4LightProj = glm::ortho(-15.0f,
         15.0f,
-            -8.0f,
+            -15.0f,
             8.0f,
             0.1f,
             100.0f);
@@ -251,7 +255,7 @@ int main() {
 
         // 指定颜色附件集合
         //在片元着色器的layout中指定输出位置时要对应这里的顺序
-        const GLenum attachments[3] = {
+        constexpr GLenum attachments[3] = {
             GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2
         };
         glDrawBuffers(3, attachments);
@@ -277,7 +281,7 @@ int main() {
         GLuint depthTexture;
         glGenTextures(1, &depthTexture);
         glBindTexture(GL_TEXTURE_2D, depthTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, WIDTH, HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -289,7 +293,7 @@ int main() {
         GLuint lGainTexture;
         glGenTextures(1, &lGainTexture);
         glBindTexture(GL_TEXTURE_2D, lGainTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -299,7 +303,7 @@ int main() {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
         //绑定到FBO的颜色输出
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lGainTexture, 0);
-        const GLenum sAttachments[1] = {GL_COLOR_ATTACHMENT0};
+        constexpr GLenum sAttachments[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1,sAttachments);
 
         // 构建全屏 Quad（NDC xy, UV）
@@ -323,9 +327,13 @@ int main() {
             glEnableVertexAttribArray(0);
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
             glEnableVertexAttribArray(1);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void *>(2 * sizeof(float)));
             glBindVertexArray(0);
         }
+
+        // 初始化光源管理器并添加一个点光源
+        LightManager lightManager;
+        lightManager.add(Light{glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.0f, 0.09f, 0.032f});
 
         while (!glfwWindowShouldClose(hWindow))
         {
@@ -339,7 +347,7 @@ int main() {
 
             //shadow pass, write into S-Buffer.
             glBindFramebuffer(GL_FRAMEBUFFER, sBuffer);
-            glViewport(0, 0, ViewWidth, ViewHeight);
+            glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
             glEnable(GL_DEPTH_TEST);
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
             shadowPass.use();
@@ -348,7 +356,7 @@ int main() {
                 glUniformMatrix4fv(uLocMat4LightView, 1, GL_FALSE, glm::value_ptr(mat4LightView));
             if (uLocMat4LightProj != -1)
                 glUniformMatrix4fv(uLocMat4LightProj, 1, GL_FALSE, glm::value_ptr(mat4LightProj));
-            //Under construction.
+
             teapot.bindVAO();
             glUniformMatrix4fv(uLocMat4ModelShadow, 1, GL_FALSE, glm::value_ptr(teapot.getModelMatrix()));
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(teapot.getVertexCount()));
@@ -412,23 +420,12 @@ int main() {
             if (uLocMat4LightView_lPass != -1)
                 glUniformMatrix4fv(uLocMat4LightView_lPass, 1,GL_FALSE, glm::value_ptr(mat4LightView));
 
-            // 设置观察位置与光源（示例：1 个点光源）
+            // 设置观察位置
             GLint uLocViewPos = glGetUniformLocation(lPassProgId, "viewPos");
             if (uLocViewPos != -1) glUniform3fv(uLocViewPos, 1, glm::value_ptr(cam->cameraPos));
 
-            GLint uLocNumLights = glGetUniformLocation(lPassProgId, "numLights");
-            if (uLocNumLights != -1) glUniform1i(uLocNumLights, 1);
-            // lights[0]
-            GLint uLocL0Pos = glGetUniformLocation(lPassProgId, "lights[0].position");
-            GLint uLocL0Color = glGetUniformLocation(lPassProgId, "lights[0].color");
-            GLint uLocL0Const = glGetUniformLocation(lPassProgId, "lights[0].constant");
-            GLint uLocL0Linear = glGetUniformLocation(lPassProgId, "lights[0].linear");
-            GLint uLocL0Quad = glGetUniformLocation(lPassProgId, "lights[0].quadratic");
-            if (uLocL0Pos != -1) glUniform3f(uLocL0Pos, 2.0f, 2.0f, 2.0f);
-            if (uLocL0Color != -1) glUniform3f(uLocL0Color, 1.0f, 1.0f, 1.0f);
-            if (uLocL0Const != -1) glUniform1f(uLocL0Const, 1.0f);
-            if (uLocL0Linear != -1) glUniform1f(uLocL0Linear, 0.09f);
-            if (uLocL0Quad != -1) glUniform1f(uLocL0Quad, 0.032f);
+            // 使用光源管理器上传光源数据（numLights 与 lights[i]）
+            lightManager.upload(lPassProgId, "lights", "numLights");
 
             glBindVertexArray(quadVAO);
             glDrawArrays(GL_TRIANGLES, 0, 6);
