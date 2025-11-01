@@ -1,0 +1,49 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam componentStyle rectangle
+
+component "Renderer (main.cpp)" as Renderer
+component "Camera" as Cam
+component "GPass Program" as GProg
+component "ShadowPass Program" as SProg
+component "LPass Program" as LProg
+component "GBuffer FBO" as GBuffer
+component "SBuffer FBO" as SBuffer
+component "Model: Plane" as Plane
+component "Model: Teapot" as Teapot
+
+interface IGPosition
+interface IGNornal
+interface IGAlbedoSpec
+interface IDepthTex
+interface IGainTex
+
+Renderer --> Cam : getView()/getProjection()
+Renderer --> GProg : use/Uniforms/draw
+Renderer --> SProg : use/Uniforms/draw
+Renderer --> LProg : use/Uniforms/draw
+Renderer --> Plane : bindVAO/draw
+Renderer --> Teapot : bindVAO/draw
+
+GProg -down-> GBuffer : write
+GBuffer -left- IGPosition
+GBuffer -left- IGNornal
+GBuffer -left- IGAlbedoSpec
+
+SProg -down-> SBuffer : write
+SBuffer -right- IDepthTex
+SBuffer -right- IGainTex
+
+LProg ..> IGPosition : sample
+LProg ..> IGNornal : sample
+LProg ..> IGAlbedoSpec : sample
+LProg ..> IDepthTex : sample
+LProg ..> IGainTex : sample
+
+note right of LProg
+Outputs final lit color
+into default framebuffer
+end note
+
+@enduml

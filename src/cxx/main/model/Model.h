@@ -14,6 +14,9 @@
 #include "gtc/matrix_transform.hpp"
 #include "gtc/type_ptr.hpp"
 #include "Shader.h"
+
+#include "src/cxx/main/model/ModelTexture.h"
+
 class Model {
 private:
     GLuint VAO, VBO;
@@ -21,6 +24,8 @@ private:
     std::string path;
     bool loaded = false;
     glm::mat4 mModel;
+    ModelTexture diffuseTextureObj{TextureType::DIFFUSE};
+    ModelTexture specularTextureObj{TextureType::SPECULAR};
 public:
     explicit Model(std::string path);
     ~Model();
@@ -29,10 +34,15 @@ public:
     bool isLoaded();
     GLuint getVertexCount();
     void bindVAO();
+    void bindTexture();
+    void unbindTexture();
+    void drawModel();
     void unbindVAO();
     GLuint getVAO();
     const glm::mat4 &getModelMatrix();
     const glm::mat4 &setModelMatrix(const glm::mat4 &model);
+    ModelTexture& getDiffuseTextureObj() { return diffuseTextureObj; };
+    ModelTexture& getSpecularTextureObj() { return specularTextureObj; };
 };
 
 

@@ -1,0 +1,50 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+
+actor User
+participant "Renderer\n(main.cpp)" as R
+participant "Camera" as C
+participant "ShadowPass\nProgram" as SP
+participant "SBuffer FBO" as SB
+participant "GPass\nProgram" as GP
+participant "GBuffer FBO" as GB
+participant "LPass\nProgram" as LP
+participant "Default FB" as DF
+
+User -> R: run()
+R -> C: getViewMatrix()
+R <- C: view
+R -> C: getProjectionMatrix()
+R <- C: proj
+
+opt Shadow pass
+  R -> SP: use()
+  R -> SP: set umat4LightView/Proj
+  R -> SB: glBindFramebuffer()
+  R -> R: clear depth/color
+  loop models
+    R -> SP: set umat4Model
+    R -> SB: draw(plane/teapot)
+  end
+end
+
+opt Geometry pass
+  R -> GP: use()
+  R -> GP: set umat4View/Proj/Model
+  R -> GB: glBindFramebuffer()
+  R -> R: clear color/depth
+  loop models
+    R -> GB: draw(plane/teapot)
+  end
+end
+
+opt Lighting pass
+  R -> LP: use()
+  R -> LP: bind gPosition/gNormal/gAlbedoSpec
+  R -> LP: bind shadowTexture/gainTexture
+  R -> LP: set viewPos & light uniforms
+  R -> DF: draw(fullscreen quad)
+end
+
+@enduml

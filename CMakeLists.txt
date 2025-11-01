@@ -28,7 +28,10 @@ add_executable(InitialGL
         src/cxx/main/call_back/CallBack.cpp
         src/cxx/main/model/Model.cpp
         src/cxx/main/light/Light.cpp
-        src/cxx/main/light/LightManager.cpp)
+        src/cxx/main/light/LightManager.cpp
+        src/cxx/main/uniformMapper/uniformMapper.cpp
+        src/cxx/main/uniformMapper/uniformMapper.h
+        src/cxx/main/model/ModelTexture.cpp)
 
 # 定义资源路径变量
 set(RESOURCE_PATH "${CMAKE_SOURCE_DIR}/src/cxx/Resources")

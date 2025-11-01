@@ -1,0 +1,27 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam state {
+  StartColor #AADDFF
+  EndColor #FFAAAA
+}
+
+[*] --> Idle
+
+state Idle {
+  [*] --> Waiting
+}
+
+Idle --> Translating : KeyDown(W/A/S/D)
+Translating --> Idle : KeyUp(W/A/S/D)
+Translating : update position\nvia Camera::move(keys)
+
+Idle --> Rotating : MouseMove
+Rotating --> Idle : MouseStop
+Rotating : update yaw/pitch\nvia Camera::mousemove()
+
+Idle --> Zooming : Scroll
+Zooming --> Idle : ScrollEnd
+Zooming : update FOV\nvia setProjectionMatrix()
+
+@enduml
