@@ -1,0 +1,37 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangleStyle rounded
+
+rectangle "Geometry (Teapot, Plane)" as Geo
+node "GBuffer FBO" as GBuf {
+  rectangle "gPosition (RGB16F)" as gPosition
+  rectangle "gNormal (RGB16F)" as gNormal
+  rectangle "gAlbedoSpec (RGBA8)" as gAlbedo
+}
+
+rectangle "Light Camera" as LCam
+node "SBuffer FBO" as SBuf {
+  rectangle "depthTexture (DEPTH)" as depthTex
+  rectangle "lGainTexture (RGBA)" as gainTex
+}
+
+rectangle "LPass Shader" as LPass
+rectangle "Default Framebuffer" as DefaultFB
+
+Geo -down-> gPosition : write in GPass
+Geo -down-> gNormal : write in GPass
+Geo -down-> gAlbedo : write in GPass
+
+LCam -down-> depthTex : write in ShadowPass
+LCam -down-> gainTex : write in ShadowPass
+
+LPass -left-> gPosition : sample
+LPass -left-> gNormal : sample
+LPass -left-> gAlbedo : sample
+LPass -right-> depthTex : sample
+LPass -right-> gainTex : sample
+
+LPass -down-> DefaultFB : final color
+
+@enduml

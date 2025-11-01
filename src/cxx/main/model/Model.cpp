@@ -115,3 +115,21 @@ const glm::mat4 &Model::getModelMatrix() {
 const glm::mat4 &Model::setModelMatrix(const glm::mat4 &model) {
     return this->mModel = model;
 }
+
+void Model::bindTexture() {
+    this->diffuseTextureObj.bindTexture();
+    this->specularTextureObj.bindTexture();
+}
+
+void Model::unbindTexture() {
+    this->diffuseTextureObj.unbindTexture();
+    this->specularTextureObj.unbindTexture();
+}
+
+void Model::drawModel() {
+    this->bindVAO();
+    this->bindTexture();
+    glDrawArrays(GL_TRIANGLES, 0, this->vertexCount);
+    this->unbindTexture();
+    this->unbindVAO();
+}

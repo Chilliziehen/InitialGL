@@ -1,0 +1,140 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+package "shader" {
+  abstract class Shader {
+    + ~Shader()
+    + compile() : void
+    + getId() : GLuint
+    + isCompiled() : bool
+  }
+  class VertexShader extends Shader {
+    - vshID : GLuint
+    - vshSrc : const char*
+    - compileSuccess : bool
+    + VertexShader(vertexPath: const char*)
+    + ~VertexShader()
+    + compile() : void
+    + getId() : GLuint
+    + isCompiled() : bool
+  }
+  class FragmentShader extends Shader {
+    - fshID : GLuint
+    - fshSrc : const char*
+    - compileSuccess : bool
+    + FragmentShader(fragmentPath: const char*)
+    + ~FragmentShader()
+    + compile() : void
+    + getId() : GLuint
+    + isCompiled() : bool
+  }
+}
+
+package "program" {
+  class Program {
+    - shaders : std::vector<std::pair<Shader*, GLuint>>
+    - programId : GLuint
+    - initialized : bool
+    - compiled : bool
+    - linked : bool
+    - ready : bool
+    + Program()
+    + ~Program()
+    + addShader(shader: Shader*, type: GLuint) : void
+    + compileAll() : void
+    + linkAll() : void
+    + use() : void
+    + init() : void
+    + checkReady() : bool
+    + getId() : GLuint
+  }
+}
+
+package "model" {
+  class Model {
+    - VAO : GLuint
+    - VBO : GLuint
+    - vertexCount : GLuint
+    - path : std::string
+    - loaded : bool
+    - mModel : glm::mat4
+    + Model(path: std::string)
+    + ~Model()
+    + load() : void
+    + draw() : void
+    + isLoaded() : bool
+    + getVertexCount() : GLuint
+    + bindVAO() : void
+    + unbindVAO() : void
+    + getVAO() : GLuint
+    + getModelMatrix() : const glm::mat4&
+    + setModelMatrix(model: const glm::mat4&) : const glm::mat4&
+  }
+}
+
+package "camera" {
+  class Camera {
+    + viewMatrix : glm::mat4
+    + projectionMatrix : glm::mat4
+    + cameraPos : glm::vec3
+    + cameraFront : glm::vec3
+    + cameraUp : glm::vec3
+    + cameraRight : glm::vec3
+    + yaw : GLfloat
+    + pitch : GLfloat
+    + Camera(pos: glm::vec3, front: glm::vec3, up: glm::vec3)
+    + Camera()
+    + ~Camera()
+    + getViewMatrix() : glm::mat4
+    + refresh() : void
+    + move(keys: bool*) : void
+    + mousemove() : void
+    + setProjectionMatrix(project: const glm::mat4&) : const glm::mat4&
+    + getProjectionMatrix() : const glm::mat4&
+  }
+}
+
+package "light" {
+  class Light {
+    + position : glm::vec3
+    + color : glm::vec3
+    + constant : float
+    + linear : float
+    + quadratic : float
+    + Light()
+    + Light(pos: glm::vec3, col: glm::vec3, kc: float, kl: float, kq: float)
+    + upload(programId: GLuint, index: int, uniformArrayName: std::string = "lights") : void
+  }
+  class LightManager {
+    {static} + MAX_LIGHTS : int
+    - lights : std::vector<Light>
+    + add(l: Light) : void
+    + clear() : void
+    + size() : size_t
+    + get() : const std::vector<Light>&
+    + get() : std::vector<Light>&
+    + upload(programId: GLuint, uniformArrayName: std::string = "lights", numUniformName: std::string = "numLights") : void
+  }
+}
+
+package "call_back" {
+  class CallBack {
+    + keyboard_callback(window: GLFWwindow*, key: int, scancode: int, action: int, mods: int) : void
+    + mouse_callback(window: GLFWwindow*, xpos: double, ypos: double) : void
+    + mouse_scroll_callback(window: GLFWwindow*, xoffset: double, yoffset: double) : void
+  }
+}
+
+' Relationships
+VertexShader -|> Shader
+FragmentShader -|> Shader
+Program *-- "*" Shader : owns
+LightManager o-- "*" Light
+Model ..> Camera : uses view/proj
+Program ..> GL : OpenGL API
+
+@enduml
+

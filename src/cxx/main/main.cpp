@@ -6,8 +6,9 @@
 #include <GLFW\glfw3.h>
 #include "model\Model.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+// 删除本地 STB 实现，改由 ModelTexture.cpp 提供实现
+// #define STB_IMAGE_IMPLEMENTATION
+// #include "stb_image.h"
 #include "config\config.h"
 #include "gtc/matrix_transform.hpp"
 #include "gtc/type_ptr.hpp"
@@ -17,12 +18,14 @@
 #include "program/Program.h"
 #include "call_back/CallBack.h"
 #include "light/LightManager.h"
+#include "predefinition/Predefinitions.h"
+#include "uniformMapper/UniformMapper.h"
 
 #define WIDTH 1920
 #define HEIGHT 1080
 
-#define SHADOW_WIDTH 2048
-#define SHADOW_HEIGHT 2048
+#define SHADOW_WIDTH 8192
+#define SHADOW_HEIGHT 8192
 
 #define WINDOW_TITLE "Render"
 
@@ -61,54 +64,8 @@ int main() {
         glViewport(0, 0, ViewWidth, ViewHeight);
         glEnable(GL_DEPTH_TEST);
 
-        GLuint texture;
-        glGenTextures(1, &texture);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        {
-            int texWidth, texHeight,nrChannels;
-            std::string resourcePath = std::string(RESOURCE_PATH)+std::string("/container.jpg");
-            std::cout<<resourcePath<<std::endl;
-            unsigned char* image = stbi_load(resourcePath.c_str(), &texWidth, &texHeight, &nrChannels, 0);
-            if (image!= nullptr)
-            {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-                glGenerateMipmap(GL_TEXTURE_2D);
-            }
-            else
-            {
-                throw std::runtime_error("Failed to load texture");
-            }
-            stbi_image_free(image);
-        }
-
-        GLuint texture_specular;
-        glGenTextures(1, &texture_specular);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture_specular);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        {
-            int texWidth, texHeight,nrChannels;
-            std::string resourcePath = std::string(RESOURCE_PATH)+std::string("/container.jpg");
-            unsigned char* image = stbi_load(resourcePath.c_str(), &texWidth, &texHeight, &nrChannels, 0);
-            if (image!= nullptr)
-            {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-                glGenerateMipmap(GL_TEXTURE_2D);
-            }
-            else
-            {
-                throw std::runtime_error("Failed to load texture");
-            }
-            stbi_image_free(image);
-        }
+        // 移除手动纹理对象创建，改为使用 ModelTexture 抽象
+        // GLuint texture, texture_specular; ... 删除
 
         // 先创建、编译和链接程序
         std::string gVshPath = std::string(GLSL_PATH)+std::string("/gPass/gVertex.vert");
@@ -156,35 +113,25 @@ int main() {
         GLuint lPassProgId = lPass.getId();
         GLuint sPassProgId = shadowPass.getId();
 
+        UniformMapper uniformMapper;
+        const auto toTextureUnitIndex = [](GLenum unit) -> GLint {
+            return static_cast<GLint>(unit - GL_TEXTURE0);
+        };
+
         // gPass 采样器绑定到纹理单元 0/1
         gPass.use();
-        GLint uLocMat4View = glGetUniformLocation(gPassProgId, "umat4View");
-        GLint uLocMat4Proj = glGetUniformLocation(gPassProgId, "umat4Proj");
-        GLint uLocMat4Model = glGetUniformLocation(gPassProgId, "umat4Model");
-        GLint uLocTDiffuse1 = glGetUniformLocation(gPassProgId, "texture_diffuse1");
-        GLint uLocTSpecular1 = glGetUniformLocation(gPassProgId, "texture_specular1");
-        if (uLocTDiffuse1 != -1) glUniform1i(uLocTDiffuse1, 0);
-        if (uLocTSpecular1 != -1) glUniform1i(uLocTSpecular1, 1);
+        uniformMapper.setUniform(gPassProgId, "texture_diffuse1", toTextureUnitIndex(TEXTURE_DIFFUSE_INDEX));
+        uniformMapper.setUniform(gPassProgId, "texture_specular1", toTextureUnitIndex(TEXTURE_SPECULAR_INDEX));
 
         // lPass 采样器固定绑定到纹理单元 0/1/2
         lPass.use();
-        GLint uLocGPos = glGetUniformLocation(lPassProgId, "gPosition");
-        GLint uLocGNormal = glGetUniformLocation(lPassProgId, "gNormal");
-        GLint uLocGAlbedoSpec = glGetUniformLocation(lPassProgId, "gAlbedoSpec");
-        GLint uLocSTexture = glGetUniformLocation(lPassProgId, "shadowTexture");
-        GLint uLocGainTexture = glGetUniformLocation(lPassProgId, "gainTexture");
-        GLint uLocMat4LightProj_lPass = glGetUniformLocation(lPassProgId, "umat4LightProj");
-        GLint uLocMat4LightView_lPass = glGetUniformLocation(lPassProgId, "umat4LightView");
-        if (uLocGPos != -1) glUniform1i(uLocGPos, 0);
-        if (uLocGNormal != -1) glUniform1i(uLocGNormal, 1);
-        if (uLocGAlbedoSpec != -1) glUniform1i(uLocGAlbedoSpec, 2);
-        if (uLocSTexture != -1) glUniform1i(uLocSTexture, 3);
-        if (uLocGainTexture != -1) glUniform1i(uLocGainTexture, 4);
+        uniformMapper.setUniform(lPassProgId, "gPosition", 0);
+        uniformMapper.setUniform(lPassProgId, "gNormal", 1);
+        uniformMapper.setUniform(lPassProgId, "gAlbedoSpec", 2);
+        uniformMapper.setUniform(lPassProgId, "shadowTexture", 3);
+        uniformMapper.setUniform(lPassProgId, "gainTexture", 4);
 
         shadowPass.use();
-        GLint uLocMat4LightView = glGetUniformLocation(sPassProgId, "umat4LightView");
-        GLint uLocMat4LightProj = glGetUniformLocation(sPassProgId, "umat4LightProj");
-        GLint uLocMat4ModelShadow = glGetUniformLocation(sPassProgId, "umat4Model");
 
         // 相机矩阵初值
         glm::mat4 mat4View = glm::lookAt(glm::vec3(1.0f,1.0f,3.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(0.0f,1.0f,0.0f));
@@ -202,12 +149,9 @@ int main() {
 
         //glm::mat4 mat4LightProj = glm::perspective(glm::radians(60.0f),1.0f,0.1f,100.0f);
         gPass.use();
-        if (uLocMat4View != -1)
-            glUniformMatrix4fv(uLocMat4View, 1, GL_FALSE, glm::value_ptr(mat4View));
-        if (uLocMat4Proj != -1)
-            glUniformMatrix4fv(uLocMat4Proj, 1, GL_FALSE, glm::value_ptr(mat4Proj));
-        if (uLocMat4Model != -1)
-            glUniformMatrix4fv(uLocMat4Model, 1, GL_FALSE, glm::value_ptr(mat4Model));
+        uniformMapper.setUniform(gPassProgId, "umat4View", mat4View);
+        uniformMapper.setUniform(gPassProgId, "umat4Proj", mat4Proj);
+        uniformMapper.setUniform(gPassProgId, "umat4Model", mat4Model);
 
         glfwSetKeyCallback(hWindow, CallBack::keyboard_callback);
         glfwSetCursorPosCallback(hWindow, CallBack::mouse_callback);
@@ -220,6 +164,25 @@ int main() {
         Model plane(std::string(RESOURCE_PATH)+std::string("/plane.obj"));
         plane.load();
         plane.setModelMatrix(glm::translate(glm::mat4(1.0f),glm::vec3(-500.0f,-0.2f,-500.0f))*glm::scale(glm::mat4(1.0f),glm::vec3(1000.0f,1000.0f,1000.0f)));
+
+        // 使用 ModelTexture 统一加载漫反射/高光贴图
+        TextureCreateInfo texInfo{DEFAULT_TEXTURE_WRAP_S, DEFAULT_TEXTURE_WRAP_T, DEFAULT_TEXTURE_MIN_FILTER, DEFAULT_TEXTURE_MAG_FILTER};
+        const std::string resourcePath = std::string(RESOURCE_PATH) + std::string("/fuckthisup.jpg");
+        const auto loadModelTextures = [&](Model& model) {
+            auto& diffuse = model.getDiffuseTextureObj();
+            diffuse.setTextureIndex(TEXTURE_DIFFUSE_INDEX);
+            diffuse.preloadTexture(resourcePath);
+            diffuse.loadTexture(texInfo);
+            diffuse.releaseMemory();
+
+            auto& specular = model.getSpecularTextureObj();
+            specular.setTextureIndex(TEXTURE_SPECULAR_INDEX);
+            specular.preloadTexture(resourcePath);
+            specular.loadTexture(texInfo);
+            specular.releaseMemory();
+        };
+        loadModelTextures(teapot);
+        loadModelTextures(plane);
 
         // 创建 G-Buffer
         GLuint gBuffer;
@@ -352,17 +315,15 @@ int main() {
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
             shadowPass.use();
             //传入参数
-            if (uLocMat4LightView != -1)
-                glUniformMatrix4fv(uLocMat4LightView, 1, GL_FALSE, glm::value_ptr(mat4LightView));
-            if (uLocMat4LightProj != -1)
-                glUniformMatrix4fv(uLocMat4LightProj, 1, GL_FALSE, glm::value_ptr(mat4LightProj));
+            uniformMapper.setUniform(sPassProgId, "umat4LightView", mat4LightView);
+            uniformMapper.setUniform(sPassProgId, "umat4LightProj", mat4LightProj);
 
             teapot.bindVAO();
-            glUniformMatrix4fv(uLocMat4ModelShadow, 1, GL_FALSE, glm::value_ptr(teapot.getModelMatrix()));
+            uniformMapper.setUniform(sPassProgId, "umat4Model", teapot.getModelMatrix());
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(teapot.getVertexCount()));
             teapot.unbindVAO();
             plane.bindVAO();
-            glUniformMatrix4fv(uLocMat4ModelShadow, 1, GL_FALSE, glm::value_ptr(plane.getModelMatrix()));
+            uniformMapper.setUniform(sPassProgId, "umat4Model", plane.getModelMatrix());
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(plane.getVertexCount()));
             plane.unbindVAO();
 
@@ -374,26 +335,15 @@ int main() {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             gPass.use();
-            if (uLocMat4View != -1)
-                glUniformMatrix4fv(uLocMat4View, 1, GL_FALSE, glm::value_ptr(mat4View));
-            if (uLocMat4Proj != -1)
-                glUniformMatrix4fv(uLocMat4Proj, 1, GL_FALSE, glm::value_ptr(mat4Proj));
+            uniformMapper.setUniform(gPassProgId, "umat4View", mat4View);
+            uniformMapper.setUniform(gPassProgId, "umat4Proj", mat4Proj);
 
-            // 绑定漫反射与高光贴图
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texture);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, texture_specular);
+            // 使用模型自带的纹理对象进行绘制
+            uniformMapper.setUniform(gPassProgId, "umat4Model", plane.getModelMatrix());
+            plane.drawModel();
 
-            plane.bindVAO();
-            glUniformMatrix4fv(uLocMat4Model, 1, GL_FALSE, glm::value_ptr(plane.getModelMatrix()));
-            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(plane.getVertexCount()));
-            plane.unbindVAO();
-
-            teapot.bindVAO();
-            glUniformMatrix4fv(uLocMat4Model, 1, GL_FALSE, glm::value_ptr(teapot.getModelMatrix()));
-            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(teapot.getVertexCount()));
-            teapot.unbindVAO();
+            uniformMapper.setUniform(gPassProgId, "umat4Model", teapot.getModelMatrix());
+            teapot.drawModel();
 
             // 光照通道：读取 G-Buffer 合成
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -415,14 +365,11 @@ int main() {
             glActiveTexture(GL_TEXTURE4);
             glBindTexture(GL_TEXTURE_2D, lGainTexture);
             // 传入光源矩阵
-            if (uLocMat4LightProj_lPass != -1)
-                glUniformMatrix4fv(uLocMat4LightProj_lPass, 1,GL_FALSE, glm::value_ptr(mat4LightProj));
-            if (uLocMat4LightView_lPass != -1)
-                glUniformMatrix4fv(uLocMat4LightView_lPass, 1,GL_FALSE, glm::value_ptr(mat4LightView));
+            uniformMapper.setUniform(lPassProgId, "umat4LightProj", mat4LightProj);
+            uniformMapper.setUniform(lPassProgId, "umat4LightView", mat4LightView);
 
             // 设置观察位置
-            GLint uLocViewPos = glGetUniformLocation(lPassProgId, "viewPos");
-            if (uLocViewPos != -1) glUniform3fv(uLocViewPos, 1, glm::value_ptr(cam->cameraPos));
+            uniformMapper.setUniform(lPassProgId, "viewPos", cam->cameraPos);
 
             // 使用光源管理器上传光源数据（numLights 与 lights[i]）
             lightManager.upload(lPassProgId, "lights", "numLights");

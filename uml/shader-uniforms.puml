@@ -1,0 +1,85 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+
+package "Shaders & Programs (Uniforms)" {
+  class GPassProgram as "G" {
+    +umat4View:int
+    +umat4Proj:int
+    +umat4Model:int
+    +texture_diffuse1 : sampler  /* slot 0 */
+    +texture_specular1 : sampler /* slot 1 */
+  }
+
+  class ShadowPassProgram as "S" {
+    -- Uniforms --
+    + umat4LightView
+    + umat4LightProj
+    + umat4Model
+    --
+    + depthTexture : texture
+    + lGainTexture : texture
+  }
+
+  class LPassProgram as "L" {
+    -- Uniforms --
+    + umat4LightView
+    + umat4LightProj
+    + viewPos : vec3
+    + numLights : int
+    + lights : Light  /* [16] */
+    --
+    + gPosition : sampler     /* slot 0 */
+    + gNormal : sampler       /* slot 1 */
+    + gAlbedoSpec : sampler   /* slot 2 */
+    + shadowTexture : sampler /* slot 3 */
+    + gainTexture : sampler   /* slot 4 */
+  }
+
+  class Light {
+    + position : vec3
+    + color : vec3
+    + constant : float
+    + linear : float
+    + quadratic : float
+  }
+}
+
+package "Framebuffers & Textures" {
+  class GBufferFBO as "GBuf" {
+    + gPosition : "RGB16F"
+    + gNormal   : "RGB16F"
+    + gAlbedoSpec : "RGBA8"
+    + depth : "DEPTH24"
+  }
+
+  class SBufferFBO as "SBuf" {
+    + depthTexture : "DEPTH"
+    + lGainTexture : "RGBA"
+  }
+
+  class DefaultFramebuffer as "DF"
+}
+
+' Writes
+"G" --> "GBuf" : write MRT (0/1/2)
+"S" --> "SBuf" : write depth + gain
+
+' Reads
+"L" ..> "GBuf" : sample gPosition/gNormal/gAlbedoSpec
+"L" ..> "SBuf" : sample depthTexture/gainTexture
+"L" --> "DF" : final color
+
+note right of "GBuf"
+COLOR_ATTACHMENT0 = gPosition
+COLOR_ATTACHMENT1 = gNormal
+COLOR_ATTACHMENT2 = gAlbedoSpec
+end note
+
+note right of "SBuf"
+Depth Attachment = depthTexture
+COLOR_ATTACHMENT0 = lGainTexture
+end note
+
+@enduml
